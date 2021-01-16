@@ -1,6 +1,5 @@
 use std::io;
 use std::char;
-use regex::Regex;
 
 fn main() {
     println!("Booting");
@@ -8,60 +7,41 @@ fn main() {
 
     println!("Rounds: {}", rounds);
     for _ in 0..rounds {
+        unsafe {
+            let mut input_number = String::new();
+            println!("Please insert a number (input string)");
+            io::stdin().read_line(&mut input_number).expect("Could not parse string");
 
-        let mut input_number = String::new();
-        println!("Please insert a number (input string)");
-        io::stdin().read_line(&mut input_number).expect("Could not parse string");
+            if input_number.len() > 1_000_000 {
+                panic!("too many digits");
+            }
+            
+            let mut palindrome: String = input_number.trim().to_string();
 
-        if input_number.len() > 1_000_000 {
-            panic!("too many digits");
-        }
-
-        let re = Regex::new(r"^\d+$").unwrap();
-        assert!(re.is_match(input_number));
-
-        let mut palindrome: String = input_number;
-
-        while !check_palindrome(&palindrome) {
-            let digits: Vec<char> = palindrome.chars().collect();
-
-            for i in 0..(digits.len() / 2) {
-                let u8 right_digit_index = digits.len() - 1 - i;
-                let mut u8 left_digit = match digits[i].parse() {
-                    Ok(number) => number,
-                    Err(_) => panic!(":-(")
-                };
-                let mut u8 right_digit = match digits[right_digit_index].parse() {
-                    Ok(number) => number,
-                    Err(_) => panic!(":-(")
-                };
-
-                if left_digit == right_digit {
-                    continue; // nothing to do
-                }
-
-                if left_digit > right_digit {
-                    digits[right_digit_index] = char::from_digit(left_digit); // 21 => 22
-                }
-
-                if left_digit < right_digit {
-                    increment_palindrome(&digits, i);
-                }
+            for (_idx, c) in palindrome.chars().enumerate() {
+                assert!(c.is_digit(10));
             }
 
-            palindrome = digits.to_string();
+            while !check_palindrome(&palindrome) {
+                let size: usize = palindrome.len();
+                for i in 0..(size / 2) {
+                    let right_digit_index: usize = size - 1 - i;
+                    let left_ascii: u32 = from_ascii(palindrome.chars().nth(i).unwrap());
+                    let right_digit: u32 = from_ascii(palindrome.chars().nth(right_digit_index).unwrap());
 
-            // N-th zahl != -N-th zahl
-            //   -N-th zahl gleich setzen
-            // nächste ziffer betrachten
-            //   wenn gleich: nichts zu tun
-            //   wenn ungleich:
-            //     wenn letzte zahl kleiner als erste: gleich setzen
-            //     wenn letzte zahl größer als erste: gleich setzen, und -N-th-1 zahl hochzählen (achtung: rekursiv, sonderfall 9)
-            // 1234 => 1235..1239 1240 1241  1251..1291 1301 1331
+                    if left_ascii == right_digit {
+                        continue; // nothing to do
+                    } else if left_ascii > right_digit {
+                        // 501 => 505
+                        palindrome.replace_range(right_digit_index..right_digit_index + 1, &(left_ascii).to_string());
+                    } else{
+                        // 105 => 106
+                        increment_digit(&mut palindrome, right_digit, right_digit_index);
+                    }
+                }
+            }
+            println!("Found palindrome: {}", palindrome);
         }
-        
-        println!("Found palindrome: {}", palindrome);
     }
 }
 
@@ -78,49 +58,31 @@ fn read_number(reason: &str) -> u32 {
     return input_number
 }
 
-fn check_palindrome(str_number: String) -> bool {
+fn check_palindrome(str_number: &String) -> bool {
     let mut is_equal: bool = true;
     let digits: Vec<char> = str_number.chars().collect();
 
     for i in 0..(digits.len() / 2) {
         is_equal = is_equal && digits[i] == digits[digits.len() - 1 - i];
     }
-
     return is_equal;
 }
 
-fn increment_palindrome(digits: &Vec<char>, position: u32) {
-    let u8 right_digit_index = digits.len() - 1 - i;
-    let mut u8 neighboring_digit = match digits[right_digit_index - 1].parse() {
-        Ok(number) => number,
-        Err(_) => panic!(":-(")
-    };
+unsafe fn increment_digit(palindrome: &mut String, digit: u32, position: usize) {
+    if digit < 9 {
+        // 1234 => 1235
+        palindrome.replace_range(position..position + 1, &(digit + 1).to_string());
+    }else{
+        // 1299 => 1300
+        assert!(position > 0);
+        let neighboring_digit: u32 = from_ascii(palindrome.chars().nth(position - 1).unwrap());
+        palindrome.replace_range(position..position + 1, "0");
 
-    if neighboring_digit < 9 {
-        // 19 => 20 ( => 22)
-        digits[right_digit_index - 1] = char::from_digit(neighboring_digit + 1);
-        digits[right_digit_index] = char::from_digit(0);
-    } else {
-        // 192 -> 102 -> (recursive) 112  => 202
-        digits[right_digit_index - 1] = char::from_digit(0)
-        //digits[right_digit_index - 2] = increment_palindrome()
-        increment_palindrome(digits, )
+        increment_digit(palindrome, neighboring_digit, position - 1);
     }
-
-    // 109 => 909 statt 111
 }
 
-
-
-
-fn check_palindrome_int(number: &u32) -> bool {
-    let mut is_equal: bool = true;
-    let str_number: String = number.to_string();
-    let digits: Vec<char> = str_number.chars().collect();
-
-    for i in 0..(digits.len() / 2) {
-        is_equal = is_equal && digits[i] == digits[digits.len() - 1 - i];
-    }
-
-    return is_equal;
+fn from_ascii(ascii_char: char) -> u32 {
+    let number: u32 = ascii_char as u32;
+    return number - 48; // 49 is 1 in ASCII
 }
