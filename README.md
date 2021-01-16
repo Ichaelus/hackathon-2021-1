@@ -4,4 +4,6 @@ Rusty is a CLI tool that combines different challenges that were implemented dur
 
 # Usage
 
-tdb
+```
+rusty --help
+```
