@@ -1,18 +1,61 @@
+use std::io;
+
 fn main() {
-    println!("Hello, world!");
+    let mut no_test_cases = String::new();
+    io::stdin().read_line(&mut no_test_cases).expect("Failed to get console input");
+    let no_test_cases: u32 = no_test_cases.trim().parse().expect("Failed to parse int");
+
+    for _case in 0..no_test_cases {
+        let mut test_case = String::new();
+        io::stdin().read_line(&mut test_case).expect("Failed to get console input");
+        test_case = test_case.trim().to_string();
+        let palin = next_palin(&mut test_case);
+        println!("{}", palin);
+    }
 }
 
-fn next_palin(x: &mut String) {
+fn next_palin(x: &mut String) -> String {
     if x.len()%2 == 0 {
-        let a = x[..(x.len()/2)];
-        let b = x[(x.len()/2)..];
+        let (a, b) = x.split_at(x.len()/2);
+        let mut a = String::from(a);
+        let b = String::from(b);
 
-        if is_less_or_equal_than(a, b) {
-            increment(a);
+        let mut carry = false;
+        if need_increment(&a, &reverse(&b)) {
+           carry = increment(&mut a);
         }
-        x[(x.len()/2)..] = reverse(a);
-    } else {
+        a.push_str( &reverse(&a));
 
+        if carry {
+            a.remove(1);
+        }
+
+        return a;
+    } else {
+        let (a, b) = x.split_at(x.len()/2);
+        let (m, b) = b.split_at(1);
+        let mut a = String::from(a);
+        let m = String::from(m);
+        let b = String::from(b);
+
+        let mut carry = false;
+        let mut m: u32 = m.parse().expect("no digit");
+        if need_increment(&a, &reverse(&b)) {
+            m = (m +1)%10;
+
+            if m == 0 {
+                carry = increment(&mut a);
+            }
+        }
+
+        let mut m = m.to_string();
+        m.push_str(&reverse(&a));
+        a.push_str(&m.to_string());
+        
+        if carry {
+            a.remove(1);
+        }
+        return a;
     }
 }
 
@@ -50,10 +93,35 @@ fn increment(x: &mut String) -> bool {
     return carry;
 }
 
-fn is_less_than(a: String, b: String) -> bool {
+fn need_increment(a: &String, b: &String) -> bool {
+    assert_eq!(a.len(), b.len());
+    
+    let a_rev = reverse(a);
+    if &a_rev == b { return true; }
+
+    for pos in 0..a.len() {
+        let a_digit = a_rev.chars().nth(pos).unwrap();
+        let b_digit = b.chars().nth(pos).unwrap();
+
+        let a_digit = a_digit.to_digit(10).unwrap();
+        let b_digit = b_digit.to_digit(10).unwrap();
+
+        if a_digit < b_digit {
+            return true;
+        } else if a_digit > b_digit {
+            return false;
+        }
+    }
+
+    return true;
+}
+
+fn is_less_or_equal_than(a: &String, b: &String) -> bool {
     // a: 123122031
     // b: 123123123
     assert_eq!(a.len(), b.len());
+
+    if a == b { return true; }
 
     for pos in 0..a.len() {
         let a = a.chars().nth(pos).unwrap();
@@ -79,14 +147,16 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_is_less_than() {
-        assert!(is_less_than(String::from("1"), String::from("2")));
+    fn test_is_less_or_equal_than() {
+        assert!(is_less_or_equal_than(&String::from("1"), &String::from("2")));
 
-        assert!(is_less_than(String::from("0001"), String::from("1000")));
+        assert!(is_less_or_equal_than(&String::from("0001"), &String::from("1000")));
 
-        assert!(is_less_than(String::from("09998"), String::from("10000")));
+        assert!(is_less_or_equal_than(&String::from("09998"), &String::from("10000")));
 
-        assert!(!is_less_than(String::from("09998"), String::from("09997")));
+        assert!(!is_less_or_equal_than(&String::from("9998"), &String::from("9997")));
+
+        assert!(is_less_or_equal_than(&String::from("9998"), &String::from("9998")));
     }
 
     #[test]
@@ -112,5 +182,30 @@ mod tests {
     fn test_reverse() {
         let x = String::from("abcde");
         assert_eq!(reverse(&x), String::from("edcba"));
+    }
+
+    #[test]
+    fn test_next_palin() {
+        let mut x = String::from("99");
+        assert_eq!(next_palin(&mut x), String::from("101"));
+
+        let mut x = String::from("2133");
+        assert_eq!(next_palin(&mut x), String::from("2222"));
+
+        let mut x = String::from("1287361983619826");
+        assert_eq!(next_palin(&mut x), String::from("1287361991637821"));
+
+        let mut x = String::from("8080808080");
+        assert_eq!(next_palin(&mut x), String::from("8080880808"));
+
+        let mut x = String::from("808");
+        assert_eq!(next_palin(&mut x), String::from("818"));
+
+        let mut x = String::from("999");
+        assert_eq!(next_palin(&mut x), String::from("1001"));
+
+        let mut x = String::from("11111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111112");
+        assert_eq!(next_palin(&mut x), String::from("11111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111122111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111"));
+
     }
 }

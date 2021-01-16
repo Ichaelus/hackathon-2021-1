@@ -5,7 +5,9 @@
 818
 21 33
 
-
+     6     6 
+      1   3
+       8 9
 12873619 83619826
 12873619 91637821
 
@@ -40,6 +42,16 @@
 9999
 100001
 
+99 9 99
+100 0 001
+100 001
+
+12396 58321
+
+is_less_or_equal:
+   6 | 5 -> break & mirror
+   6 | 6 -> try next
+   6 | 7 -> break and increment
 
 
 if ungerade
@@ -55,6 +67,7 @@ if ungerade
 a: 8 m:9 b: 8
 
 
+80 08
 a: 80, b: 80
 
 if a.len%2 == 0
