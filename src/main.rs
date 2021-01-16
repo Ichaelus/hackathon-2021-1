@@ -15,5 +15,7 @@ fn main() {
 
     if args.command == "hello" {
         commands::hello::run();
+    } else if args.command == "hs12hdpw" {
+        commands::hs12hdpw::run();
     }
 }

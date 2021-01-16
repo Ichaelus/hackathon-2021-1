@@ -9,3 +9,4 @@ This project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.html
 ### Compatible changes
 
 * Added: Rusty learned to say hello with `rusty hello`.
+* Added: Spoj problem hs12hdpw
