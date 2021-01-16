@@ -1,3 +1,19 @@
+// The CLI implementation was derived from https://rust-cli.github.io/book/index.html
+
+use structopt::StructOpt;
+
+#[derive(StructOpt)]
+#[structopt(name = "Rusty", about = "The Rusty CLI robot.")]
+struct Cli {
+    command: String,
+}
+
+mod commands;
+
 fn main() {
-    println!("Hello, world!");
+    let args = Cli::from_args();
+
+    if args.command == "hello" {
+        commands::hello::run();
+    }
 }
