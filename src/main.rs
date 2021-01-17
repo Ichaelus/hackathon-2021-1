@@ -36,6 +36,8 @@ fn read_number() -> u32 {
 fn next_palindrome(input_number: &String) -> String {
     let mut palindrome: String = input_number.trim().to_string();
     let mut size: usize = palindrome.len();
+    let mut all_digits_equal: bool = false;
+    let mut checked_until_position: usize = 0;
 
     for (_idx, c) in palindrome.chars().enumerate() {
         assert!(c.is_digit(10));
@@ -49,21 +51,30 @@ fn next_palindrome(input_number: &String) -> String {
         size = palindrome.len(); // might have been changed
     }
 
-    while !check_palindrome(&palindrome) {
-        for i in 0..(size / 2) {
+    while !all_digits_equal {
+        all_digits_equal = true;
+        for i in checked_until_position..(size / 2) {
             let right_digit_index: usize = size - 1 - i;
             let left_digit: u32 = from_ascii(palindrome.chars().nth(i).unwrap());
             let right_digit: u32 = from_ascii(palindrome.chars().nth(right_digit_index).unwrap());
 
             if left_digit == right_digit {
-                continue; // nothing to do
+                // println!("fine {} {} {}", palindrome, left_digit, right_digit);
+                // nothing to do. Remember that we don't have to check again up to this point
+                if checked_until_position == i {
+                    checked_until_position += 1;
+                }
             } else if left_digit > right_digit {
                 // 501 => 505
+                // println!("l>r {} {} {}", palindrome, left_digit, right_digit);
                 palindrome.replace_range(right_digit_index..right_digit_index + 1, &(left_digit).to_string());
+                all_digits_equal = false; // we are not finished yet
             } else {
                 // 105 => 109, 199 => 220
+                // println!("r>l {} {} {}", palindrome, left_digit, right_digit);
                 increment_to(&mut palindrome, left_digit, right_digit_index);
                 size = palindrome.len(); // The size might have changed, e.g. with 9 => 10
+                all_digits_equal = false; // we are not finished yet
             }
         }
     }
