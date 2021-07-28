@@ -1,201 +1,246 @@
-use std::io;
 use std::char;
+use std::cmp::Ordering;
+use std::io;
+use std::num::ParseIntError;
 
-fn main() {
-    //println!("Booting");
-    let rounds: u32 = read_number();
-
-    //println!("Rounds: {}", rounds);
+fn main() -> Result<(), String> {
+    let rounds = read_number()?;
     for _ in 0..rounds {
         let mut input_number = String::new();
-        //println!("Please insert a number (input string)");
-        io::stdin().read_line(&mut input_number).expect("Could not parse string");
+        io::stdin()
+            .read_line(&mut input_number)
+            .map_err(|err| err.to_string())?;
 
-        if input_number.len() > 1_000_000 {
-            panic!("too many digits");
+        let num_digits = input_number.len();
+        if num_digits > 1_000_000 {
+            return Err(format!("Too many digits: {}!", num_digits));
         }
-        
-        let palindrome: String = next_palindrome(&input_number);
-        
-        println!("{}", palindrome);
+
+        let next_palindrome = next_palindrome(&input_number)?;
+        println!("{}", &next_palindrome);
     }
+    Ok(())
 }
 
-fn read_number() -> u32 {
+fn read_number() -> Result<usize, String> {
     let mut input_number = String::new();
-    io::stdin().read_line(&mut input_number).expect("Could not parse string");
-
-    let input_number: u32 = match input_number.trim().parse() {
-        Ok(number) => number,
-        Err(_) => panic!(":-(")
-    };
-
-    return input_number;
+    io::stdin()
+        .read_line(&mut input_number)
+        .map_err(|err| err.to_string())?;
+    let input_number: usize = input_number
+        .trim()
+        .parse()
+        .map_err(|err: ParseIntError| err.to_string())?;
+    Ok(input_number)
 }
 
-fn next_palindrome(input_number: &String) -> String {
-    let mut palindrome: String = input_number.trim().to_string();
-    let mut size: usize = palindrome.len();
-    let mut all_digits_equal: bool = false;
-    let mut checked_until_position: usize = 0;
+fn next_palindrome(palindrome: &str) -> Result<String, String> {
+    let mut palindrome = get_char_vec_and_validate_digits(palindrome)?;
+    let size = palindrome.len();
 
-    for (_idx, c) in palindrome.chars().enumerate() {
-        assert!(c.is_digit(10));
-    }
-
-    // if the number is already a palindrome, always mutate it
+    // If the number is already a palindrome, always mutate it
     if check_palindrome(&palindrome) {
-        let right_digit_index: usize = size - 1;
-        let right_digit: u32 = from_ascii(palindrome.chars().nth(right_digit_index).unwrap());
-        increment_digit(&mut palindrome, right_digit, right_digit_index);
-        size = palindrome.len(); // might have been changed
+        let right_digit_index = size - 1;
+        let increment_to_index = increment_digit_at_position(&mut palindrome, right_digit_index);
+        if increment_to_index == 0 {
+            return Ok(set_last_digit_value_to_first_digit_value(&mut palindrome));
+        }
     }
 
-    while !all_digits_equal {
-        all_digits_equal = true;
-        for i in checked_until_position..(size / 2) {
-            let right_digit_index: usize = size - 1 - i;
-            let left_digit: u32 = from_ascii(palindrome.chars().nth(i).unwrap());
-            let right_digit: u32 = from_ascii(palindrome.chars().nth(right_digit_index).unwrap());
+    // Transform the digit vec into the next palindrome
+    update_string_from_right_to_middle(&mut palindrome);
+    update_middle_digits(&mut palindrome, size);
 
-            if left_digit == right_digit {
-                // println!("fine {} {} {}", palindrome, left_digit, right_digit);
-                // nothing to do. Remember that we don't have to check again up to this point
-                if checked_until_position == i {
-                    checked_until_position += 1;
-                }
-            } else if left_digit > right_digit {
-                // 501 => 505
-                // println!("l>r {} {} {}", palindrome, left_digit, right_digit);
-                palindrome.replace_range(right_digit_index..right_digit_index + 1, &(left_digit).to_string());
-                all_digits_equal = false; // we are not finished yet
-            } else {
-                // 105 => 109, 199 => 220
-                // println!("r>l {} {} {}", palindrome, left_digit, right_digit);
-                increment_to(&mut palindrome, left_digit, right_digit_index);
-                size = palindrome.len(); // The size might have changed, e.g. with 9 => 10
-                all_digits_equal = false; // we are not finished yet
+    Ok(palindrome.into_iter().collect())
+}
+
+fn get_char_vec_and_validate_digits(palindrome: &str) -> Result<Vec<char>, String> {
+    let palindrome = palindrome
+        .trim()
+        .chars()
+        .map(|ascii_char| {
+            if !ascii_char.is_digit(10) {
+                return Err(format!("Non-digit character found! {}", ascii_char));
             }
-        }
-    }
-    return palindrome;
+            Ok(ascii_char)
+        })
+        .collect::<Result<Vec<char>, String>>()?;
+    Ok(palindrome)
 }
 
-fn check_palindrome(str_number: &String) -> bool {
-    return *str_number == str_number.chars().rev().collect::<String>();
-}
+fn update_string_from_right_to_middle(mut palindrome: &mut Vec<char>) {
+    let size = palindrome.len();
+    for index in 0..(size / 2) {
+        let right_digit_index = size - 1 - index;
+        let left_digit = get_digit_at_position_from_str(&palindrome, index);
+        let right_digit = get_digit_at_position_from_str(&palindrome, right_digit_index);
 
-// Set the target position to a new digit, increasing the number to left by one (e.g. 14 -> 23, swapping the "4" with a "3")
-fn increment_to(palindrome: &mut String, new_digit: u32, position: usize) {
-    if position > 0 {
-        // 14 => 22
-        let neighboring_digit: u32 = from_ascii(palindrome.chars().nth(position - 1).unwrap());
-        palindrome.replace_range(position..position + 1, &(new_digit).to_string());
-
-        increment_digit(palindrome, neighboring_digit, position - 1);
-    }else{
-        // 5 => 14
-        let new_string = format!("1{}", new_digit);
-        palindrome.replace_range(position..position + 1, &new_string);
-    }
-}
-
-fn increment_digit(palindrome: &mut String, digit: u32, position: usize) {
-    if digit < 9 {
-        // 1234 => 1235
-        palindrome.replace_range(position..position + 1, &(digit + 1).to_string());
-    }else{
-        if position > 0 {
-            // 1299 => 1300
-            let neighboring_digit: u32 = from_ascii(palindrome.chars().nth(position - 1).unwrap());
-            palindrome.replace_range(position..position + 1, "0");
-
-            increment_digit(palindrome, neighboring_digit, position - 1);
-        }else{
-            // 9 => 10
-            palindrome.replace_range(position..position + 1, "10");
+        match left_digit.cmp(&right_digit) {
+            Ordering::Greater => {
+                set_position_to_digit(&mut palindrome, right_digit_index, left_digit);
+            }
+            Ordering::Less => {
+                let incremented_to_index =
+                    increment_digit_at_position(&mut palindrome, right_digit_index - 1);
+                let maybe_changed_left_digit = get_digit_at_position_from_str(&palindrome, index);
+                set_position_to_digit(&mut palindrome, right_digit_index, maybe_changed_left_digit);
+                if incremented_to_index < (size / 2) {
+                    update_right_after_increment_overflow_left(
+                        &mut palindrome,
+                        incremented_to_index,
+                    );
+                    return;
+                }
+            }
+            _ => (),
         }
     }
 }
 
-fn from_ascii(ascii_char: char) -> u32 {
-    let number: u32 = ascii_char as u32;
-    return number - 48; // 49 is 1 in ASCII
+fn update_middle_digits(palindrome: &mut Vec<char>, size: usize) {
+    let middle_right_index = size / 2;
+    let middle_left_index = (size - 1) / 2;
+    let left_digit = get_digit_at_position_from_str(&palindrome, middle_left_index);
+    let right_digit = get_digit_at_position_from_str(&palindrome, middle_right_index);
+    if left_digit >= right_digit {
+        set_position_to_digit(palindrome, middle_right_index, left_digit);
+    } else {
+        set_position_to_digit(palindrome, middle_left_index, left_digit + 1);
+        set_position_to_digit(palindrome, middle_right_index, left_digit + 1);
+    }
 }
 
+fn update_right_after_increment_overflow_left(
+    palindrome: &mut Vec<char>,
+    incremented_to_index: usize,
+) {
+    let palindrome_len = palindrome.len();
+    for index in incremented_to_index..(palindrome_len / 2) {
+        let right_index = palindrome_len - index - 1;
+        let left_digit: u8 = get_digit_at_position_from_str(&palindrome, index);
+        set_position_to_digit(palindrome, right_index, left_digit);
+    }
+}
 
+fn set_last_digit_value_to_first_digit_value(palindrome: &mut Vec<char>) -> String {
+    let last_index = palindrome.len() - 1;
+    let digit = get_digit_at_position_from_str(palindrome, 0);
+    set_position_to_digit(palindrome, last_index, digit);
+    palindrome.iter().collect()
+}
 
+fn get_digit_at_position_from_str(palindrome: &[char], position: usize) -> u8 {
+    let ascii_char = palindrome[position];
+    ascii_char.to_digit(10).map(|digit| digit as u8).unwrap()
+}
+
+fn check_palindrome(str_number: &[char]) -> bool {
+    let size = str_number.len();
+    for index in 0..size {
+        let right_digit_index = size - 1 - index;
+        let left_digit = get_digit_at_position_from_str(&str_number, index);
+        let right_digit = get_digit_at_position_from_str(&str_number, right_digit_index);
+        if left_digit != right_digit {
+            return false;
+        }
+    }
+    true
+}
+
+fn set_position_to_digit(palindrome: &mut Vec<char>, position: usize, new_digit: u8) {
+    palindrome[position] = char::from_digit(new_digit as u32, 10).unwrap();
+}
+
+fn increment_digit_at_position(palindrome: &mut Vec<char>, position: usize) -> usize {
+    for index in (0..=position).rev() {
+        let digit = get_digit_at_position_from_str(&palindrome, index);
+        if digit < 9 {
+            set_position_to_digit(palindrome, index, digit + 1);
+            return index;
+        } else {
+            palindrome[index] = '0';
+        }
+    }
+    palindrome[0] = '1';
+    palindrome.insert(1, '0');
+    0
+}
 
 #[cfg(test)]
-mod tests {
+mod test {
     // Note this useful idiom: importing names from outer (for mod tests) scope.
     use super::*;
 
     #[test]
-    fn test_increment_to() {
-        // "Set string "2" at position 1 to 1 (and thus increment its neighbor)"
-        let mut x = String::from("123");
-        increment_to(&mut x, 1, 1);
-        assert_eq!(x, String::from("213"));
-
-        let mut x = String::from("5");
-        increment_to(&mut x, 3, 0);
-        assert_eq!(x, String::from("13"));
-
-        let mut x = String::from("99");
-        increment_to(&mut x, 2, 1);
-        assert_eq!(x, String::from("102"));
-    }
-
-    #[test]
     fn test_increment_digit() {
-        // "Increment string at position 1 (value: 2) by one"
-        let mut x = String::from("123");
-        increment_digit(&mut x, 2, 1);
-        assert_eq!(x, String::from("133"));
+        let mut x = String::from("123").chars().collect();
+        increment_digit_at_position(&mut x, 1);
+        assert_eq!(x.into_iter().collect::<String>(), String::from("133"));
 
-        let mut x = String::from("199");
-        increment_digit(&mut x, 9, 2);
-        assert_eq!(x, String::from("200"));
+        let mut x = String::from("199").chars().collect();
+        increment_digit_at_position(&mut x, 2);
+        assert_eq!(x.into_iter().collect::<String>(), String::from("200"));
 
-        let mut x = String::from("9");
-        increment_digit(&mut x, 9, 0);
-        assert_eq!(x, String::from("10"));
+        let mut x = String::from("9").chars().collect();
+        increment_digit_at_position(&mut x, 0);
+        assert_eq!(x.into_iter().collect::<String>(), String::from("10"));
 
-        let mut x = String::from("99");
-        increment_digit(&mut x, 9, 1);
-        assert_eq!(x, String::from("100"));
+        let mut x = String::from("99").chars().collect();
+        increment_digit_at_position(&mut x, 1);
+        assert_eq!(x.into_iter().collect::<String>(), String::from("100"));
 
-        let mut x = String::from("98792798472");
-        increment_digit(&mut x, 2, 10);
-        assert_eq!(x, String::from("98792798473"));
+        let mut x = String::from("100").chars().collect();
+        increment_digit_at_position(&mut x, 2);
+        assert_eq!(x.into_iter().collect::<String>(), String::from("101"));
 
-        let mut x = String::from("999999999999999999999");
-        increment_digit(&mut x, 9, 20);
-        assert_eq!(x, String::from("1000000000000000000000"));
+        let mut x = String::from("98792798472").chars().collect();
+        increment_digit_at_position(&mut x, 10);
+        assert_eq!(
+            x.into_iter().collect::<String>(),
+            String::from("98792798473")
+        );
+
+        let mut x = String::from("999999999999999999999").chars().collect();
+        increment_digit_at_position(&mut x, 20);
+        assert_eq!(
+            x.into_iter().collect::<String>(),
+            String::from("1000000000000000000000")
+        );
     }
 
     #[test]
-    fn test_next_palindrome() {
-        let mut x = String::from("99");
-        assert_eq!(next_palindrome(&mut x), String::from("101"));
+    fn test_next_palindrome() -> Result<(), String> {
+        let x = String::from("899998");
+        assert_eq!(next_palindrome(&x)?, String::from("900009"));
 
-        let mut x = String::from("2133");
-        assert_eq!(next_palindrome(&mut x), String::from("2222"));
+        let x = String::from("1239400");
+        assert_eq!(next_palindrome(&x)?, String::from("1240421"));
 
-        let mut x = String::from("1287361983619826");
-        assert_eq!(next_palindrome(&mut x), String::from("1287361991637821"));
+        let x = String::from("123456");
+        assert_eq!(next_palindrome(&x)?, String::from("124421"));
 
-        let mut x = String::from("8080808080");
-        assert_eq!(next_palindrome(&mut x), String::from("8080880808"));
+        let x = String::from("99");
+        assert_eq!(next_palindrome(&x)?, String::from("101"));
 
-        let mut x = String::from("808");
-        assert_eq!(next_palindrome(&mut x), String::from("818"));
+        let x = String::from("2133");
+        assert_eq!(next_palindrome(&x)?, String::from("2222"));
 
-        let mut x = String::from("999");
-        assert_eq!(next_palindrome(&mut x), String::from("1001"));
+        let x = String::from("1287361983619826");
+        assert_eq!(next_palindrome(&x)?, String::from("1287361991637821"));
 
-        let mut x = String::from("11111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111112");
-        assert_eq!(next_palindrome(&mut x), String::from("11111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111122111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111"));
+        let x = String::from("8080808080");
+        assert_eq!(next_palindrome(&x)?, String::from("8080880808"));
+
+        let x = String::from("808");
+        assert_eq!(next_palindrome(&x)?, String::from("818"));
+
+        let x = String::from("999");
+        assert_eq!(next_palindrome(&x)?, String::from("1001"));
+
+        let x = String::from("11111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111112");
+        assert_eq!(next_palindrome(&x)?, String::from("11111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111122111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111"));
+
+        Ok(())
     }
 }
+
